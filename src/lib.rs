@@ -1,13 +1,14 @@
-//! Willow folding crate — WARP accumulation over M31Ext6 + Orion.
+//! warp-folding — WARP accumulation over M31Ext3 + Orion.
 //!
 //! Implements the accumulation scheme from Bünz, Chiesa, Fenzi, Wang,
 //! "Linear-Time Accumulation Schemes" (eprint 2025/753, TCC 2025),
-//! instantiated for Willow's GKR-proof historical-sync workload.
+//! instantiated over the Polyhedra Expander M31 stack with
+//! parallel-repetition r=2 for 128-bit soundness over M31Ext3.
 //!
-//! Phase 2 scope: PESAT relation types, the R_C accumulation IOR
-//! (Constructions 6.3, 7.2, 8.2, 9.4), Fiat-Shamir compilation via
-//! Poseidon2, and a decider. A two-instance toy fold over synthetic
-//! PESAT constraints is the Phase 2 success criterion.
+//! The production code path uses [`OrionLinearCode`] (vendored from
+//! Polyhedra Expander; Xie–Zhang–Song 2022 with Druk–Ishai-14 distance
+//! analysis). [`IdentityCode`] and [`SpielmanCode`] are kept for unit-
+//! testing and as historical benchmark stubs respectively.
 
 pub mod code;
 pub mod constr_5_10;
@@ -21,6 +22,7 @@ pub mod decider;
 pub mod error;
 pub mod fs;
 pub mod merkle;
+pub mod orion_code;
 pub mod pesat;
 pub mod prover;
 pub mod transcript;
@@ -42,8 +44,12 @@ pub use fs::{
     SamplingParams,
 };
 pub use merkle::{verify_path, Digest32, MerklePath, MerkleTree};
+pub use orion_code::{OrionLinearCode, ORION_CODE_PARAMETER_INSTANCE};
 pub use pesat::{Constraint, PesatIndex, PesatInstance, Term};
-pub use prover::{block_seed, completeness_proof_hash, WarpProverState, WARP_INSTANCE_ROOT_BYTES};
+pub use prover::{
+    block_seed, completeness_proof_hash, default_orion_code, WarpProverState, ORION_CODE_SEED,
+    WARP_INSTANCE_ROOT_BYTES,
+};
 pub use transcript::Transcript;
 pub use twin::{
     build_eq_evals, eq_scalar, mle_eval, mle_eval_with_eq, BundledConstraint,

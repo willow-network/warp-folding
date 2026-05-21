@@ -20,11 +20,14 @@ see [Roadmap](#roadmap) below.
   ship `M31Ext4`/`M31Ext5` and a direct degree-5 extension stalled on
   irreducible-polynomial selection. Benchmarks below justify Ext3+r=2
   over Ext6 single-rep at the same security level.
-- **Commitment:** Orion (Xie–Zhang–Song 2022), Keccak-Merkle over a
-  Spielman-variant expander code, relative distance `δ(C) ≈ 0.055`.
-  Currently the production code path uses `IdentityCode` (identity
-  map) as a Phase-2/3 expedient while the IOR layer was benchmarked
-  and validated; `SpielmanCode` migration is the immediate next step.
+- **Commitment:** Orion (Xie–Zhang–Song 2022), Keccak-Merkle over the
+  vendored `OrionCode` from Polyhedra Expander with the published
+  `ORION_CODE_PARAMETER_INSTANCE` (Orion paper §5: `alpha_g0 = 0.33`,
+  `degree_g0 = 6`, `alpha_g1 = 0.337`, `degree_g1 = 6`, relative distance
+  `δ(C) = 0.055`). Distance carries the Druk–Ishai-14 induction proof.
+  `IdentityCode` and `SpielmanCode` remain in the crate as IOR-level
+  unit-test stubs and benchmark stand-in respectively; production fold
+  path uses `OrionLinearCode` via [`default_orion_code`].
 - **Fiat-Shamir:** Keccak-256 transcript, parallel-rep with
   independent per-rep transcripts; external-binding absorbed before
   any challenge to bind the fold to per-block authenticated public
@@ -112,8 +115,10 @@ adaptation:
       M31Ext3.
 - [x] Phase 3: CPU benchmarks across field choices.
 - [x] Phase 4: parallel-rep r=2 locked, M31Ext3 production path.
+- [x] Phase 5/7: production code path wired to vendored Polyhedra Orion
+      (`OrionLinearCode` + `default_orion_code`). `IdentityCode` /
+      `SpielmanCode` retained as unit-test stubs only.
 - [x] Phase 6: GPU batched-dispatch sumcheck (RTX 5090 validated).
-- [ ] Phase 5/7: full Spielman wiring (replace `IdentityCode`).
 - [ ] On-chain decider settlement transaction (currently the decider
       runs as an indexer-side self-check; see `src/prover.rs` and
       `src/decider.rs`).

@@ -60,14 +60,29 @@ use serdes::ExpSerde;
 use sha3::{Digest, Keccak256};
 use std::ops::Mul;
 
-use crate::code::IdentityCode;
+use crate::code::LinearCode;
 use crate::constr_5_10;
 use crate::error::{FoldingError, Result};
 use crate::fs::prove_with_parallel_rep_bound;
+use crate::orion_code::OrionLinearCode;
 use crate::pesat::{Constraint, PesatIndex, PesatInstance, Term};
 use crate::twin::{TwinConstrainedInstance, TwinConstrainedWitness};
 use crate::wire::FoldStepWire;
 use crate::{SamplingParams, SchemeParams};
+
+/// Deterministic seed for the production Orion code instance. The code
+/// is a system parameter shared between prover and verifier (and across
+/// all subgroves), not per-instance; this constant binds everyone to
+/// the same expander-graph sampling. Public so verifiers building the
+/// code independently can call [`default_orion_code`].
+pub const ORION_CODE_SEED: [u8; 32] = *b"willow-warp/orion-code-seed/v1\0\0";
+
+/// Construct the canonical production Orion code for the given message
+/// log-length. Both prover and verifier must construct the same code
+/// to verify a proof; this is the single source of truth.
+pub fn default_orion_code(msg_log_n: usize) -> OrionLinearCode {
+    OrionLinearCode::new(1usize << msg_log_n, ORION_CODE_SEED)
+}
 
 /// Running accumulator state held by an indexer between block
 /// submissions. Genesis state is built via [`WarpProverState::genesis`];
@@ -79,8 +94,11 @@ where
     instance: TwinConstrainedInstance<F>,
     witness: TwinConstrainedWitness<F>,
     p_b: Constraint<F>,
-    code: IdentityCode,
-    codeword_log_n: usize,
+    code: OrionLinearCode,
+    /// log₂ of the witness/message length. The actual codeword length is
+    /// derived from the Orion code's encoding ratio and rounded up to
+    /// the next power of two (see [`OrionLinearCode`]).
+    msg_log_n: usize,
     parallel_rep: u32,
     sampling_n_ood: usize,
     sampling_n_shifts: usize,
@@ -91,16 +109,18 @@ where
     F: Field + ExpSerde + From<u32> + Mul<F, Output = F>,
 {
     /// Build the genesis accumulator. The witness is a deterministic
-    /// codeword derived from `genesis_seed` so the same seed reproduces
-    /// the same accumulator. Defaults sampling to the
-    /// `(n_ood=1, n_shifts=2)` profile (r=4) — call
-    /// [`WarpProverState::with_sampling`] to override.
-    pub fn genesis(codeword_log_n: usize, parallel_rep: u32, genesis_seed: [u8; 32]) -> Self {
-        let n = 1usize << codeword_log_n;
-        let code = IdentityCode::new(n);
+    /// length-`2^msg_log_n` vector derived from `genesis_seed` so the
+    /// same seed reproduces the same accumulator. The Orion code itself
+    /// is a system parameter and uses a fixed shared seed
+    /// ([`ORION_CODE_SEED`]). Defaults sampling to the `(n_ood=1,
+    /// n_shifts=2)` profile (r=4) — call [`WarpProverState::with_sampling`]
+    /// to override.
+    pub fn genesis(msg_log_n: usize, parallel_rep: u32, genesis_seed: [u8; 32]) -> Self {
+        let msg_len = 1usize << msg_log_n;
+        let code = OrionLinearCode::new(msg_len, ORION_CODE_SEED);
 
         let mut rng = StdRng::from_seed(genesis_seed);
-        let w: Vec<F> = (0..n).map(|_| F::random_unsafe(&mut rng)).collect();
+        let w: Vec<F> = (0..msg_len).map(|_| F::random_unsafe(&mut rng)).collect();
 
         // Trivial PESAT identity `w[0] - w[0] = 0`. Per-block
         // correctness is enforced by the completeness + GKR proofs
@@ -126,7 +146,7 @@ where
         let pesat_idx = PesatIndex {
             constraints: vec![p_b.clone()],
             n_pub: 0,
-            k: n,
+            k: msg_len,
             d: 1,
         };
         let pesat_inst = PesatInstance {
@@ -143,7 +163,7 @@ where
             witness,
             p_b: p_b_bundled,
             code,
-            codeword_log_n,
+            msg_log_n,
             parallel_rep,
             sampling_n_ood: 1,
             sampling_n_shifts: 2,
@@ -196,27 +216,29 @@ where
         block_seed: [u8; 32],
         block_payload: &[u8],
     ) -> Result<FoldStepWire<F>> {
-        let n = 1usize << self.codeword_log_n;
+        let msg_len = 1usize << self.msg_log_n;
 
         // Step 1: Encode the per-block payload as field elements. Two
         // bytes per limb: a 16-bit value fits losslessly in M31's
         // 31-bit prime, so distinct payloads produce distinct witnesses
-        // (no high-bit truncation).
-        let mut w: Vec<F> = Vec::with_capacity(n);
+        // (no high-bit truncation). Witness fills the WITNESS length
+        // (`msg_len`), not the codeword length — the Orion code expands
+        // `w` into the larger codeword `f = code.encode(w)`.
+        let mut w: Vec<F> = Vec::with_capacity(msg_len);
         for chunk in block_payload.chunks(2) {
             let mut buf = [0u8; 2];
             buf[..chunk.len()].copy_from_slice(chunk);
             let limb = u16::from_le_bytes(buf) as u32;
             w.push(F::from(limb));
-            if w.len() == n {
+            if w.len() == msg_len {
                 break;
             }
         }
 
-        // Step 2: If the payload didn't fill the codeword, pad
+        // Step 2: If the payload didn't fill the witness, pad
         // deterministically from the block_seed so the witness is
         // unique per (payload, seed) pair without revealing entropy.
-        if w.len() < n {
+        if w.len() < msg_len {
             let mut hasher = Keccak256::new();
             hasher.update(b"willow-warp/block-witness/pad/v1");
             hasher.update(block_seed);
@@ -225,7 +247,7 @@ where
             hasher.update((block_payload.len() as u64).to_le_bytes());
             let pad_seed: [u8; 32] = hasher.finalize().into();
             let mut rng = StdRng::from_seed(pad_seed);
-            while w.len() < n {
+            while w.len() < msg_len {
                 w.push(F::random_unsafe(&mut rng));
             }
         }
@@ -244,7 +266,7 @@ where
                 ],
             }],
             n_pub: 0,
-            k: n,
+            k: msg_len,
             d: 1,
         };
         let pesat_inst = PesatInstance { x: vec![], w };
@@ -252,11 +274,12 @@ where
         let (new_instance, new_witness, _p_b) =
             constr_5_10::reduce(&pesat_idx, &pesat_inst, &self.code, &tau)?;
 
-        // Run the FS-compiled WARP IOR over the two-instance pair using
-        // the configured sampling profile (defaults to `(1, 2)` → r=4).
+        // Run the FS-compiled WARP IOR. `log_n` and `k` come from the
+        // code: `log_n = log₂(codeword_len)`, `k = msg_len` (witness
+        // length). Defaults sampling to `(1, 2)` → r=4.
         let params = SchemeParams {
-            log_n: self.codeword_log_n,
-            k: n,
+            log_n: <OrionLinearCode as LinearCode<F>>::log_codeword_len(&self.code),
+            k: msg_len,
             m: 0,
             d: 1,
         };
@@ -306,12 +329,13 @@ where
     /// Serialize the prover state to bytes for on-disk persistence.
     /// Only the dynamic parts (instance + witness vectors) and the
     /// scheme parameters are written; `p_b` is the trivial identity
-    /// constraint that [`Self::from_bytes`] rebuilds from
-    /// `codeword_log_n`.
+    /// constraint that [`Self::from_bytes`] rebuilds from `msg_log_n`,
+    /// and the Orion code is reconstructed from `msg_log_n` plus the
+    /// shared [`ORION_CODE_SEED`].
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
         let mut buf: Vec<u8> = Vec::new();
         buf.extend_from_slice(STATE_MAGIC);
-        buf.push(self.codeword_log_n as u8);
+        buf.push(self.msg_log_n as u8);
         buf.extend_from_slice(&self.parallel_rep.to_le_bytes());
         buf.push(self.sampling_n_ood as u8);
         buf.push(self.sampling_n_shifts as u8);
@@ -329,8 +353,9 @@ where
         Ok(buf)
     }
 
-    /// Inverse of [`Self::to_bytes`]. Rebuilds the static constraint /
-    /// code from `codeword_log_n` so callers don't have to store them.
+    /// Inverse of [`Self::to_bytes`]. Rebuilds the static constraint
+    /// and the Orion code from `msg_log_n` so callers don't have to
+    /// store them.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() < STATE_MAGIC.len() + 1 + 4 + 2 || &bytes[..8] != STATE_MAGIC {
             return Err(FoldingError::ShapeMismatch(
@@ -338,7 +363,7 @@ where
             ));
         }
         let mut cur = &bytes[8..];
-        let codeword_log_n = cur[0] as usize;
+        let msg_log_n = cur[0] as usize;
         cur = &cur[1..];
         let parallel_rep = u32::from_le_bytes(cur[..4].try_into().unwrap());
         cur = &cur[4..];
@@ -353,8 +378,8 @@ where
         let w = Vec::<F>::deserialize_from(&mut cur)
             .map_err(|e| FoldingError::ShapeMismatch(format!("witness.w deserialize: {e:?}")))?;
 
-        let n = 1usize << codeword_log_n;
-        let code = IdentityCode::new(n);
+        let msg_len = 1usize << msg_log_n;
+        let code = OrionLinearCode::new(msg_len, ORION_CODE_SEED);
         let p_b = Constraint {
             terms: vec![
                 Term {
@@ -372,7 +397,7 @@ where
             witness: TwinConstrainedWitness { f, w },
             p_b,
             code,
-            codeword_log_n,
+            msg_log_n,
             parallel_rep,
             sampling_n_ood,
             sampling_n_shifts,
@@ -440,9 +465,9 @@ mod tests {
     fn genesis_then_fold_round_trips_through_wire() {
         use crate::fs::verify_with_parallel_rep_bound;
 
-        let log_n = 4; // n=16 — small for the test
+        let msg_log_n = 4; // msg=16 — small for the test
         let parallel_rep = 1;
-        let mut prover = WarpProverState::<F>::genesis(log_n, parallel_rep, [42u8; 32]);
+        let mut prover = WarpProverState::<F>::genesis(msg_log_n, parallel_rep, [42u8; 32]);
         let prev_root = prover.current_root();
 
         let bs = block_seed(&[1u8; 32], &[2u8; 32], &[3u8; 32], &[0u8; 32], 1);
@@ -459,13 +484,14 @@ mod tests {
             prev_root
         );
 
-        // Verifier: re-run IOR and confirm the folded instance hashes
-        // to the prover's NEW root. Sampling profile must match the
-        // prover's defaults `(n_ood=1, n_shifts=2)`. Verifier must use
-        // the same `external_binding` (= block_seed) the prover did.
+        // Verifier reconstructs the canonical Orion code from msg_log_n
+        // to learn the codeword shape (log_n is the LOG OF CODEWORD
+        // LENGTH, not msg length — they differ when the code is a real
+        // expanding code rather than IdentityCode).
+        let code = default_orion_code(msg_log_n);
         let params = SchemeParams {
-            log_n,
-            k: 1usize << log_n,
+            log_n: <OrionLinearCode as LinearCode<F>>::log_codeword_len(&code),
+            k: 1usize << msg_log_n,
             m: 0,
             d: 1,
         };
