@@ -19,7 +19,7 @@ use expander_mersenne31::M31Ext3;
 use rand::{rngs::StdRng, SeedableRng};
 
 use expander_mersenne31::{M31Ext6, M31};
-use willow_folding::{
+use warp_folding::{
     code::{IdentityCode, LinearCode, SpielmanCode},
     constr_5_10,
     fs::SamplingParams,
@@ -340,7 +340,7 @@ fn bench_fold_8_2_sumcheck_cuda(c: &mut Criterion) {
     use expander_mersenne31::M31Ext3;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
-    use willow_folding::{
+    use warp_folding::{
         constr_7_2::BatchedEvalClaims,
         constr_8_2::{prove as prove_cpu, prove_cuda},
         merkle::Digest32,
@@ -348,7 +348,7 @@ fn bench_fold_8_2_sumcheck_cuda(c: &mut Criterion) {
 
     // First, smoke-test the kernels on a small input to catch obvious
     // wiring errors before timing.
-    if let Err(e) = willow_folding::cuda_kernels::smoke_test() {
+    if let Err(e) = warp_folding::cuda_kernels::smoke_test() {
         panic!("CUDA smoke test failed: {e}");
     }
 
@@ -372,8 +372,8 @@ fn bench_fold_8_2_sumcheck_cuda(c: &mut Criterion) {
                 .collect()
         }];
         let nus = vec![
-            willow_folding::twin::mle_eval(&codeword, &zetas[0]),
-            willow_folding::twin::mle_eval(&codeword, &zetas[1]),
+            warp_folding::twin::mle_eval(&codeword, &zetas[0]),
+            warp_folding::twin::mle_eval(&codeword, &zetas[1]),
         ];
         let xi = vec![M31Ext3::random_unsafe(&mut rng)];
         let claims: BatchedEvalClaims<M31Ext3> = BatchedEvalClaims {
@@ -414,7 +414,7 @@ fn bench_fold_8_2_batched_cuda(c: &mut Criterion) {
     use expander_mersenne31::M31Ext3;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
-    use willow_folding::{
+    use warp_folding::{
         constr_7_2::BatchedEvalClaims,
         constr_8_2::{prove as prove_cpu, prove_cuda, prove_cuda_batched},
         merkle::Digest32,
@@ -440,8 +440,8 @@ fn bench_fold_8_2_batched_cuda(c: &mut Criterion) {
                     .collect(),
             ];
             let nus = vec![
-                willow_folding::twin::mle_eval(&codeword, &zetas[0]),
-                willow_folding::twin::mle_eval(&codeword, &zetas[1]),
+                warp_folding::twin::mle_eval(&codeword, &zetas[0]),
+                warp_folding::twin::mle_eval(&codeword, &zetas[1]),
             ];
             let xi = vec![M31Ext3::random_unsafe(&mut rng)];
             let claims = BatchedEvalClaims {
@@ -515,7 +515,7 @@ fn bench_batched_dispatch_scaling(c: &mut Criterion) {
     use expander_mersenne31::M31Ext3;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
-    use willow_folding::cuda_kernels::{
+    use warp_folding::cuda_kernels::{
         cudaFree, cudaMalloc, cudaMemcpy, cuda_m31ext3_poly_eval_batched,
         CUDA_MEMCPY_HOST_TO_DEVICE,
     };

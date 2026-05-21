@@ -11,7 +11,7 @@ use expander_mersenne31::M31Ext6;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 
-use willow_folding::{
+use warp_folding::{
     code::IdentityCode,
     constr_5_10,
     constr_7_2::CodewordBatchingChallenges,
