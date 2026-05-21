@@ -28,7 +28,7 @@ impl<F: Field> UnivariatePoly<F> {
 
     /// Lagrange-interpolate and evaluate at an arbitrary point.
     ///
-    /// L_i(x) = ∏_{j ≠ i} (x − j) / (i − j), summed with evals[i].
+    /// L_i(x) = ∏_{j ≠ i} (x − j) / (i − j), summed with `evals[i]`.
     /// O(degree²) — acceptable for the small degrees we use.
     pub fn evaluate(&self, x: F) -> F {
         let n = self.evals.len();

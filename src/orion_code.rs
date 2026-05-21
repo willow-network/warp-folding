@@ -141,13 +141,13 @@ pub const ORION_CODE_PARAMETER_INSTANCE: OrionCodeParameter = OrionCodeParameter
 #[allow(clippy::doc_lazy_continuation)]
 /// ACKNOWLEDGEMENT: on alphabet being F2 binary case, we appreciate the help from
 /// - Section 18 in essential coding theory
-/// https://cse.buffalo.edu/faculty/atri/courses/coding-theory/book/web-coding-book.pdf
+///   <https://cse.buffalo.edu/faculty/atri/courses/coding-theory/book/web-coding-book.pdf>
 ///
 /// - Notes from coding theory
-/// https://www.cs.cmu.edu/~venkatg/teaching/codingtheory/notes/notes8.pdf
+///   <https://www.cs.cmu.edu/~venkatg/teaching/codingtheory/notes/notes8.pdf>
 ///
 /// - Druk-Ishai 2014
-/// https://dl.acm.org/doi/10.1145/2554797.2554815
+///   <https://dl.acm.org/doi/10.1145/2554797.2554815>
 
 #[derive(Clone, Debug, Default, ExpSerde)]
 pub struct OrionExpanderGraphPositioned {
