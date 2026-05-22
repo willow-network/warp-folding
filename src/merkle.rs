@@ -1,17 +1,24 @@
-//! Keccak-256 binary Merkle tree over field-element leaves.
+//! BLAKE3 binary Merkle tree over field-element leaves.
 //!
 //! Used by Construction 7.2 to bind the codeword `f ∈ F^n` before
 //! the verifier samples OOD points or shift queries. The hash choice
-//! matches Orion's existing Keccak-Merkle convention.
+//! aligns with Polyhedra Expander's Orion PCS Merkle (also BLAKE3).
 //!
-//! Leaf hash: `Keccak256(serialize(f[i]))`.
-//! Node hash: `Keccak256(left_digest || right_digest)`.
+//! BLAKE3 was chosen over Keccak-256 for raw out-of-circuit speed:
+//! the WARP IOR opens ~`t ≈ 4790` shift queries per fold-step
+//! verification under the UD-regime MCA bound, and each opening
+//! re-hashes a `log_2(n)`-length authentication path. Both hashes
+//! provide 128-bit collision resistance and are treated as random
+//! oracles for the IOR soundness analysis, so the swap is
+//! security-neutral; it just pays back in verifier time.
+//!
+//! Leaf hash: `BLAKE3("warp-merkle/leaf" || serialize(f[i]))`.
+//! Node hash: `BLAKE3("warp-merkle/node" || left_digest || right_digest)`.
 //! Root: the digest at the top of the binary tree (length `n` is
 //! padded to the next power of two with the all-zeros leaf hash).
 
 use expander_arith::Field;
 use serdes::ExpSerde;
-use sha3::{Digest, Keccak256};
 
 pub type Digest32 = [u8; 32];
 
@@ -122,18 +129,18 @@ pub fn verify_path<F: Field + ExpSerde>(
 fn hash_leaf<F: Field + ExpSerde>(f: &F) -> Digest32 {
     let mut buf = Vec::new();
     f.serialize_into(&mut buf).expect("ExpSerde Vec write");
-    let mut hasher = Keccak256::new();
+    let mut hasher = blake3::Hasher::new();
     hasher.update(b"warp-merkle/leaf");
     hasher.update(&buf);
-    hasher.finalize().into()
+    *hasher.finalize().as_bytes()
 }
 
 fn hash_node(left: &Digest32, right: &Digest32) -> Digest32 {
-    let mut hasher = Keccak256::new();
+    let mut hasher = blake3::Hasher::new();
     hasher.update(b"warp-merkle/node");
     hasher.update(left);
     hasher.update(right);
-    hasher.finalize().into()
+    *hasher.finalize().as_bytes()
 }
 
 #[cfg(test)]
