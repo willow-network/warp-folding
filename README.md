@@ -1,15 +1,24 @@
 # warp-folding
 
+[![CI](https://github.com/willow-network/warp-folding/actions/workflows/ci.yml/badge.svg)](https://github.com/willow-network/warp-folding/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE-APACHE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE-MIT)
+
 First public production implementation of **WARP** (Linear-Time Accumulation
 Schemes, Bünz/Chiesa/Fenzi/Wang, [eprint 2025/753](https://eprint.iacr.org/2025/753),
 TCC 2025) instantiated over the Polyhedra Expander M31 stack.
 
 ## Status
 
-Pre-release. The IOR + Fiat-Shamir compilation + parallel-rep amplification
-are complete and tested; full Spielman-code wiring is staged in source
-(`SpielmanCode`, `#[doc(hidden)]`) but not yet on the production code path —
-see [Roadmap](#roadmap) below.
+Pre-release, but the production code path is complete: IOR + Fiat-Shamir
+compilation + parallel-rep amplification + vendored Polyhedra Orion linear
+code (`OrionLinearCode`, with the published `ORION_CODE_PARAMETER_INSTANCE`
+from §5 of the Orion paper) + BLAKE3 Merkle commitments + optional GPU
+batched-dispatch sumcheck. 89 tests across IOR and end-to-end paths; CI
+green on linux and macos. The IOR-level proofs and the parallel-rep + shared
+external-binding composition argument have been written down (see the
+preprint draft and `docs/`) but have not yet been independently reviewed by
+a cryptographer outside the implementation loop.
 
 ## Concrete instantiation
 

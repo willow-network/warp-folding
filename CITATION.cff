@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+title: "warp-folding: First public production implementation of WARP over M31 + Orion"
+message: "If you use this software, please cite both the underlying WARP paper and this implementation."
+type: software
+authors:
+  - family-names: DeLucia
+    given-names: Paul
+repository-code: "https://github.com/willow-network/warp-folding"
+license: "Apache-2.0 OR MIT"
+version: 0.1.0
+date-released: "2026-05-15"
+keywords:
+  - cryptography
+  - zero-knowledge
+  - folding-schemes
+  - accumulation-schemes
+  - WARP
+  - Mersenne-31
+  - Orion
+  - post-quantum
+references:
+  - type: article
+    title: "Linear-Time Accumulation Schemes"
+    authors:
+      - family-names: Bünz
+        given-names: Benedikt
+      - family-names: Chiesa
+        given-names: Alessandro
+      - family-names: Fenzi
+        given-names: Giacomo
+      - family-names: Wang
+        given-names: William
+    year: 2025
+    url: "https://eprint.iacr.org/2025/753"
+    notes: "Cryptology ePrint Archive, Paper 2025/753. TCC 2025."
