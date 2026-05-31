@@ -35,6 +35,10 @@ itertools = "0.13"
 
 [dev-dependencies]
 criterion = "0.5"
+# Smoke test for the WARP-GF2 micro-spike: confirms WarpProverState
+# instantiates over GF2_128. Same Expander rev as the production deps
+# so there's no native-library coexistence issue.
+expander-gf2_128 = { git = "https://github.com/willow-network/Expander", rev = "cce9b0f05f38b9ab2de57d2ff175a1b4b31b78ae", package = "gf2_128" }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
