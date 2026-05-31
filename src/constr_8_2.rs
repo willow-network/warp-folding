@@ -771,13 +771,23 @@ pub(crate) fn round_message<F: Field>(eq_star: &[F], f: &[F]) -> SumcheckRoundMs
     assert!(eq_star.len() >= 2 && eq_star.len().is_power_of_two());
     let pairs = eq_star.len() / 2;
 
+    // x=2 point for the round polynomial. Over M31Ext3 the natural form
+    // is `e1.double() - e0` (i.e. 2·e1 - e0 with 2 = 1+1). Over GF2Ext128
+    // 1+1 = 0 (characteristic 2), so `.double()` returns zero and the
+    // commitment collapses to a rank-deficient 2-point evaluation —
+    // verifier's `interpolate_degree_2` (which uses `F::from(2u32)`, a
+    // non-trivial element over GF2) then disagrees with the prover. Use
+    // `F::from(2u32)` here too so both sides agree on the third point
+    // regardless of field characteristic; over M31Ext3 this is literally
+    // 2 = 1+1 and the math is unchanged.
+    let two = F::from(2u32);
     let pair_op = |i: usize| {
         let e0 = eq_star[2 * i];
         let e1 = eq_star[2 * i + 1];
         let f0 = f[2 * i];
         let f1 = f[2 * i + 1];
-        let e2 = e1.double() - e0;
-        let f2 = f1.double() - f0;
+        let e2 = e0 + (e1 - e0) * two;
+        let f2 = f0 + (f1 - f0) * two;
         (e0 * f0, e1 * f1, e2 * f2)
     };
     let combine = |a: (F, F, F), b: (F, F, F)| (a.0 + b.0, a.1 + b.1, a.2 + b.2);
@@ -830,13 +840,26 @@ pub(crate) fn fix_bottom_variable<F: Field>(v: &mut Vec<F>, r: F) {
 }
 
 /// Lagrange-interpolate a degree-2 polynomial given evaluations at
-/// X = 0, 1, 2 and evaluate at an arbitrary point.
-/// p(x) = p(0)·(x−1)(x−2)/2 − p(1)·x(x−2) + p(2)·x(x−1)/2.
+/// X = 0, 1, `F::from(2u32)`, and evaluate at an arbitrary point.
+///
+/// The original M31 form (`p(0)·(x−1)(x−2)/2 − p(1)·x(x−2) + p(2)·x(x−1)/2`)
+/// silently assumed the M31-specific identity `1/(1-2) = -1`. Over
+/// GF2Ext128 the field element `F::from(2u32)` is not `1+1` (it's the
+/// integer-2 bit-pattern), and `1 - F::from(2u32) ≠ -1`, so the M31 form
+/// gives wrong answers. The full Lagrange formula below works over any
+/// field where `F::from(2u32)`, `F::from(2u32) - F::one()`, and
+/// `F::zero() - F::one()` are non-zero — true for both M31Ext3 and
+/// GF2Ext128. Same caller contract as before.
 pub(crate) fn interpolate_degree_2<F: Field>(evals: &[F; 3], x: F) -> F {
-    let two_inv = F::from(2u32).inv().unwrap();
+    let two = F::from(2u32);
+    let l0_denom = (F::zero() - F::one()) * (F::zero() - two);
+    let l1_denom = F::one() - two;
+    let l2_denom = two * (two - F::one());
     let xm1 = x - F::one();
-    let xm2 = x - F::from(2u32);
-    evals[0] * xm1 * xm2 * two_inv - evals[1] * x * xm2 + evals[2] * x * xm1 * two_inv
+    let xm2 = x - two;
+    evals[0] * xm1 * xm2 * l0_denom.inv().unwrap()
+        + evals[1] * x * xm2 * l1_denom.inv().unwrap()
+        + evals[2] * x * xm1 * l2_denom.inv().unwrap()
 }
 
 #[cfg(test)]

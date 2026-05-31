@@ -15,11 +15,11 @@
 //! cargo test --test gf2_compile_check
 //! ```
 
+use warp_folding::M31Ext3;
 use warp_folding::{
     default_orion_code, verify_with_parallel_rep_bound, LinearCode, OrionLinearCode,
     SamplingParams, SchemeParams, WarpProverState,
 };
-use warp_folding::M31Ext3;
 
 // Per-arch dispatcher lives at the GF2_128 type alias in
 // `expander_gf2_128`; on aarch64 it resolves to NeonGF2_128, on x86_64
@@ -66,9 +66,7 @@ fn warp_fold_block_runs_over_gf2_128() {
     // Sanity: the wire message carries the pre/post instances.
     // We don't pin specific values — just confirm fold did SOMETHING:
     // the root advanced, self_check still holds.
-    state
-        .self_check()
-        .expect("post-fold state must self-check");
+    state.self_check().expect("post-fold state must self-check");
     let post_root = state.current_root();
     assert_ne!(
         pre_root, post_root,
@@ -121,6 +119,78 @@ fn warp_fold_block_runs_over_gf2_128() {
     );
 }
 
+/// Triage: try GF2 with parallel_rep=1 instead of 2. Narrows down
+/// whether the verify failure is parallel-rep-specific or fundamental
+/// to GF2 with the existing IOR.
+#[test]
+fn warp_fold_block_verify_over_gf2_parallel_rep_1() {
+    let mut state = WarpProverState::<Gf2>::genesis(6, 1, [0u8; 32]);
+    let payload = b"smoke-test payload over GF2_128 (r=1)";
+    let wire = state
+        .fold_block([0xAAu8; 32], payload)
+        .expect("fold_block GF2 r=1");
+
+    let code: OrionLinearCode = default_orion_code(6);
+    let params = SchemeParams {
+        log_n: <OrionLinearCode as LinearCode<Gf2>>::log_codeword_len(&code),
+        k: 1 << 6,
+        m: 0,
+        d: 1,
+    };
+    let sampling = SamplingParams {
+        n_ood: 1,
+        n_shifts: 2,
+    };
+    let result = verify_with_parallel_rep_bound::<Gf2>(
+        &[wire.prev_instance.clone(), wire.new_instance.clone()],
+        &params,
+        &sampling,
+        &wire.messages,
+        &[0xAAu8; 32],
+    );
+    eprintln!(
+        "GF2 r=1 verify result: {:?}",
+        result.as_ref().map(|_| "OK").map_err(|e| format!("{e:?}"))
+    );
+    result.expect("verify with r=1 must succeed");
+}
+
+/// Triage: try GF2 with a LARGER msg_log_n. If the issue is bound-tightness
+/// related to small codewords (where the IOR has less room to maneuver),
+/// scaling up should reveal it.
+#[test]
+fn warp_fold_block_verify_over_gf2_log_n_10() {
+    let mut state = WarpProverState::<Gf2>::genesis(10, 2, [0u8; 32]);
+    let payload = b"smoke-test payload, larger codeword";
+    let wire = state
+        .fold_block([0xAAu8; 32], payload)
+        .expect("fold_block GF2 log_n=10");
+
+    let code: OrionLinearCode = default_orion_code(10);
+    let params = SchemeParams {
+        log_n: <OrionLinearCode as LinearCode<Gf2>>::log_codeword_len(&code),
+        k: 1 << 10,
+        m: 0,
+        d: 1,
+    };
+    let sampling = SamplingParams {
+        n_ood: 1,
+        n_shifts: 2,
+    };
+    let result = verify_with_parallel_rep_bound::<Gf2>(
+        &[wire.prev_instance.clone(), wire.new_instance.clone()],
+        &params,
+        &sampling,
+        &wire.messages,
+        &[0xAAu8; 32],
+    );
+    eprintln!(
+        "GF2 log_n=10 verify result: {:?}",
+        result.as_ref().map(|_| "OK").map_err(|e| format!("{e:?}"))
+    );
+    result.expect("verify with larger codeword must succeed");
+}
+
 /// **A/B baseline.** Same shape as `warp_fold_block_runs_over_gf2_128`
 /// but over M31Ext3 — if this also fails the verify step, the bug is
 /// in `fold_block`'s scheme-params construction (not in the public
@@ -131,7 +201,9 @@ fn warp_fold_block_runs_over_gf2_128() {
 fn warp_fold_block_verify_over_m31_baseline() {
     let mut state = WarpProverState::<M31Ext3>::genesis(6, 2, [0u8; 32]);
     let payload = b"smoke-test payload over M31Ext3";
-    let wire = state.fold_block([0xAAu8; 32], payload).expect("fold_block M31");
+    let wire = state
+        .fold_block([0xAAu8; 32], payload)
+        .expect("fold_block M31");
 
     let code: OrionLinearCode = default_orion_code(6);
     let params = SchemeParams {
@@ -151,6 +223,9 @@ fn warp_fold_block_verify_over_m31_baseline() {
         &wire.messages,
         &[0xAAu8; 32],
     );
-    eprintln!("M31 verify result: {:?}", result.as_ref().map(|_| "OK").map_err(|e| format!("{e:?}")));
+    eprintln!(
+        "M31 verify result: {:?}",
+        result.as_ref().map(|_| "OK").map_err(|e| format!("{e:?}"))
+    );
     result.expect("WARP verify must accept the prover's fold over M31Ext3 (baseline)");
 }
