@@ -10,6 +10,7 @@
 //! analysis). [`IdentityCode`] and [`SpielmanCode`] are kept for unit-
 //! testing and as historical benchmark stubs respectively.
 
+pub mod chunk_pesat_prover;
 pub mod code;
 pub mod constr_5_10;
 pub mod constr_6_3;
