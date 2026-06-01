@@ -186,6 +186,82 @@ pub fn reduce<F: Field + serdes::ExpSerde, C: LinearCode<F>>(
     ))
 }
 
+/// Like [`reduce`] but skips the `bundled_constraint(index)` call by
+/// taking a precomputed `p_b`. Use this when callers run
+/// `reduce` multiple times with the same `index` (e.g. the chunk-PESAT
+/// per-block path: same circuit, different witness).
+///
+/// Caller is responsible for ensuring `precomputed_p_b ==
+/// bundled_constraint(index)`. We return the same value via the third
+/// tuple element so the callsite shape matches `reduce` exactly.
+pub fn reduce_with_precomputed_pb<F: Field + serdes::ExpSerde, C: LinearCode<F>>(
+    index: &PesatIndex<F>,
+    instance: &PesatInstance<F>,
+    code: &C,
+    tau: &[F],
+    precomputed_p_b: BundledConstraint<F>,
+) -> Result<(
+    TwinConstrainedInstance<F>,
+    TwinConstrainedWitness<F>,
+    BundledConstraint<F>,
+)> {
+    let log_m = validate_constraint_count(index)?;
+    if tau.len() != log_m {
+        return Err(FoldingError::ShapeMismatch(format!(
+            "tau.len() = {}, expected log M = {log_m}",
+            tau.len()
+        )));
+    }
+    if instance.x.len() != index.n_pub {
+        return Err(FoldingError::ShapeMismatch(format!(
+            "x.len() = {}, expected n_pub = {}",
+            instance.x.len(),
+            index.n_pub
+        )));
+    }
+    if instance.w.len() != index.k {
+        return Err(FoldingError::ShapeMismatch(format!(
+            "w.len() = {}, expected k = {}",
+            instance.w.len(),
+            index.k
+        )));
+    }
+    if code.message_len() != index.k {
+        return Err(FoldingError::ShapeMismatch(format!(
+            "code message length {} ≠ PESAT k = {}",
+            code.message_len(),
+            index.k
+        )));
+    }
+
+    let f = code.encode(&instance.w);
+    let log_n = code.log_codeword_len();
+    let alpha = vec![F::zero(); log_n];
+    let mu = mle_eval(&f, &alpha);
+
+    let mut beta = Vec::with_capacity(index.n_pub + log_m);
+    beta.extend_from_slice(&instance.x);
+    beta.extend_from_slice(tau);
+    let eta = F::zero();
+
+    let merkle_root = crate::merkle::MerkleTree::build(&f).root();
+
+    Ok((
+        TwinConstrainedInstance {
+            alpha,
+            mu,
+            beta,
+            eta,
+            merkle_root,
+        },
+        TwinConstrainedWitness {
+            f,
+            w: instance.w.clone(),
+        },
+        precomputed_p_b,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
