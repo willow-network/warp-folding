@@ -188,7 +188,7 @@ pub fn prove_with_parallel_rep<F: Field + ExpSerde>(
 /// the FS transcript absorbs at the start of each rep. Higher layers
 /// pass per-block public data (block hash, output root,
 /// completeness-proof hash, etc.) so a wrong-input prover diverges.
-pub fn prove_with_parallel_rep_bound<F: Field + ExpSerde>(
+pub fn prove_with_parallel_rep_bound<F: Field + ExpSerde + Send + Sync>(
     instances: &[TwinConstrainedInstance<F>; 2],
     witnesses: &[TwinConstrainedWitness<F>; 2],
     p_b: &BundledConstraint<F>,
@@ -201,20 +201,30 @@ pub fn prove_with_parallel_rep_bound<F: Field + ExpSerde>(
     TwinConstrainedWitness<F>,
     Vec<FoldMessage<F>>,
 )> {
+    use rayon::prelude::*;
     assert!(r >= 1, "parallel rep count must be ≥ 1");
+
+    // Reps are independent — each builds its own FS transcript seeded
+    // from (external_binding, rep). Parallelize across rayon's pool.
+    let results: Vec<_> = (0..r)
+        .into_par_iter()
+        .map(|rep| {
+            prove_with_transcript_rep(
+                instances,
+                witnesses,
+                p_b,
+                params,
+                sampling,
+                rep,
+                external_binding,
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
+
     let mut messages = Vec::with_capacity(r as usize);
     let mut canonical_inst = None;
     let mut canonical_wit = None;
-    for rep in 0..r {
-        let (inst, wit, msg) = prove_with_transcript_rep(
-            instances,
-            witnesses,
-            p_b,
-            params,
-            sampling,
-            rep,
-            external_binding,
-        )?;
+    for (rep, (inst, wit, msg)) in results.into_iter().enumerate() {
         if rep == 0 {
             canonical_inst = Some(inst);
             canonical_wit = Some(wit);
