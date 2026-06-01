@@ -17,13 +17,13 @@ categories = ["cryptography"]
 # See docs/warp-over-m31.md for design rationale.
 
 [dependencies]
-expander-arith = { git = "https://github.com/willow-network/Expander", rev = "cce9b0f05f38b9ab2de57d2ff175a1b4b31b78ae", package = "arith" }
-expander-mersenne31 = { git = "https://github.com/willow-network/Expander", rev = "cce9b0f05f38b9ab2de57d2ff175a1b4b31b78ae", package = "mersenne31" }
-expander-polynomials = { git = "https://github.com/willow-network/Expander", rev = "cce9b0f05f38b9ab2de57d2ff175a1b4b31b78ae", package = "polynomials" }
+expander-arith = { git = "https://github.com/willow-network/Expander", rev = "5222cd40999a81d78de4d7d04d0424bf9f3ab54a", package = "arith" }
+expander-mersenne31 = { git = "https://github.com/willow-network/Expander", rev = "5222cd40999a81d78de4d7d04d0424bf9f3ab54a", package = "mersenne31" }
+expander-polynomials = { git = "https://github.com/willow-network/Expander", rev = "5222cd40999a81d78de4d7d04d0424bf9f3ab54a", package = "polynomials" }
 # `#[derive(ExpSerde)]` proc macro emits `::serdes::ExpSerde` paths, so
 # the dep is named `serdes` rather than `expander-serdes`. Hand-written
 # imports use `serdes::ExpSerde`.
-serdes = { git = "https://github.com/willow-network/Expander", rev = "cce9b0f05f38b9ab2de57d2ff175a1b4b31b78ae", package = "serdes" }
+serdes = { git = "https://github.com/willow-network/Expander", rev = "5222cd40999a81d78de4d7d04d0424bf9f3ab54a", package = "serdes" }
 
 rand = "0.8"
 rand_chacha = "0.3"
@@ -38,7 +38,7 @@ criterion = "0.5"
 # Smoke test for the WARP-GF2 micro-spike: confirms WarpProverState
 # instantiates over GF2_128. Same Expander rev as the production deps
 # so there's no native-library coexistence issue.
-expander-gf2_128 = { git = "https://github.com/willow-network/Expander", rev = "cce9b0f05f38b9ab2de57d2ff175a1b4b31b78ae", package = "gf2_128" }
+expander-gf2_128 = { git = "https://github.com/willow-network/Expander", rev = "5222cd40999a81d78de4d7d04d0424bf9f3ab54a", package = "gf2_128" }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
