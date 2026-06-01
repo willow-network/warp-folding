@@ -195,6 +195,198 @@ pub fn required_msg_log_n(index_k: usize) -> usize {
     log
 }
 
+/// Precomputed per-circuit context. Holds the work that's identical
+/// across every block for a given chunk-PESAT `index`: the bundled p_b,
+/// the anchor's reduced twin form, the Orion code, and scheme params.
+///
+/// Build once at indexer startup via [`build_chunk_proof_context`]
+/// (~7 s on N=1), reuse across every block via
+/// [`prove_chunk_pesat_with_context`].
+pub struct ChunkProofContext<F: Field + ExpSerde> {
+    pub padded_index: PesatIndex<F>,
+    pub code: OrionLinearCode,
+    pub p_b: crate::twin::BundledConstraint<F>,
+    pub anchor_instance: crate::twin::TwinConstrainedInstance<F>,
+    pub anchor_witness: crate::twin::TwinConstrainedWitness<F>,
+    pub params: SchemeParams,
+    pub msg_log_n: usize,
+    pub log_m: usize,
+}
+
+/// Build the per-circuit context. Does the once-per-circuit work:
+/// pad to power-of-two, build the Orion code, compute the bundled
+/// constraint, reduce the all-zeros anchor.
+pub fn build_chunk_proof_context<F>(
+    index: &PesatIndex<F>,
+) -> core::result::Result<ChunkProofContext<F>, ChunkProofError>
+where
+    F: Field + ExpSerde + From<u32> + Mul<F, Output = F>,
+{
+    let msg_log_n = required_msg_log_n(index.k);
+    let code = default_orion_code(msg_log_n);
+    let (padded_index, padded_anchor_inst) =
+        pad_pesat_to_power_of_two(index, &anchor_zeros_instance(index), msg_log_n)?;
+    let log_m = ceil_log2(padded_index.constraints.len());
+
+    let p_b = constr_5_10::bundled_constraint::<F>(&padded_index)?;
+    // For the anchor (all-zeros witness) we can use a fixed tau (the
+    // verifier doesn't enter this codepath; only block reduces use the
+    // FS-derived tau). All zeros works as a deterministic constant.
+    let anchor_tau: Vec<F> = vec![F::zero(); log_m];
+    let (anchor_instance, anchor_witness, _pb_anchor) = constr_5_10::reduce_with_precomputed_pb(
+        &padded_index,
+        &padded_anchor_inst,
+        &code,
+        &anchor_tau,
+        p_b.clone(),
+    )?;
+
+    let params = SchemeParams {
+        log_n: <OrionLinearCode as LinearCode<F>>::log_codeword_len(&code),
+        k: padded_index.k,
+        m: log_m,
+        d: padded_index.d + log_m,
+    };
+
+    Ok(ChunkProofContext {
+        padded_index,
+        code,
+        p_b,
+        anchor_instance,
+        anchor_witness,
+        params,
+        msg_log_n,
+        log_m,
+    })
+}
+
+/// Prove a chunk PESAT using a precomputed [`ChunkProofContext`].
+/// Skips bundled_constraint computation and anchor reduce — both
+/// already cached in the context. ~7 s savings vs.
+/// [`prove_chunk_pesat`] on N=1.
+///
+/// **WARNING**: when the cached anchor was reduced with a fixed
+/// zero-tau but the block reduce here uses a block-seed-derived tau,
+/// the two instances technically live at different `beta` coordinates.
+/// `prove_with_parallel_rep_bound`'s soundness is unaffected (it folds
+/// instances algebraically; tau is part of `beta` which the IOR
+/// absorbs and threads through). The anchor's `eta = 0` (it satisfies
+/// p_b structurally), so the fold's terminal claim still holds.
+pub fn prove_chunk_pesat_with_context<F>(
+    context: &ChunkProofContext<F>,
+    instance: &PesatInstance<F>,
+    block_seed: [u8; 32],
+    parallel_rep: u32,
+    sampling: SamplingParams,
+) -> core::result::Result<ChunkPesatProof<F>, ChunkProofError>
+where
+    F: Field + ExpSerde + From<u32> + Mul<F, Output = F>,
+{
+    // Pad the block instance to the same shape the context expects.
+    let mut padded_w = instance.w.clone();
+    while padded_w.len() < context.padded_index.k {
+        padded_w.push(F::zero());
+    }
+    if padded_w.len() != context.padded_index.k {
+        return Err(ChunkProofError::WitnessTooLarge {
+            witness_len: instance.w.len(),
+            max_msg_log_n: context.msg_log_n,
+        });
+    }
+    let padded_inst = PesatInstance {
+        x: instance.x.clone(),
+        w: padded_w,
+    };
+
+    let tau: Vec<F> = derive_tau(&block_seed, context.log_m);
+    let (block_instance, block_witness, _pb) = constr_5_10::reduce_with_precomputed_pb(
+        &context.padded_index,
+        &padded_inst,
+        &context.code,
+        &tau,
+        context.p_b.clone(),
+    )?;
+
+    let (_folded_inst, _folded_wit, messages) = prove_with_parallel_rep_bound::<F>(
+        &[context.anchor_instance.clone(), block_instance.clone()],
+        &[context.anchor_witness.clone(), block_witness],
+        &context.p_b,
+        &context.params,
+        &sampling,
+        parallel_rep,
+        &block_seed,
+    )?;
+
+    Ok(ChunkPesatProof {
+        instance: block_instance,
+        messages,
+    })
+}
+
+/// Per-circuit context for the verifier mirror. Same fields as the
+/// prover but doesn't carry the anchor witness (verifier only needs
+/// the anchor *instance*).
+pub struct ChunkVerifyContext<F: Field + ExpSerde> {
+    pub padded_index: PesatIndex<F>,
+    pub code: OrionLinearCode,
+    pub anchor_instance: crate::twin::TwinConstrainedInstance<F>,
+    pub params: SchemeParams,
+    pub log_m: usize,
+}
+
+/// Build the verifier-side context (smaller than the prover's — no
+/// witness data needed).
+pub fn build_chunk_verify_context<F>(
+    index: &PesatIndex<F>,
+) -> core::result::Result<ChunkVerifyContext<F>, ChunkProofError>
+where
+    F: Field + ExpSerde + From<u32> + Mul<F, Output = F>,
+{
+    let prove_ctx = build_chunk_proof_context(index)?;
+    Ok(ChunkVerifyContext {
+        padded_index: prove_ctx.padded_index,
+        code: prove_ctx.code,
+        anchor_instance: prove_ctx.anchor_instance,
+        params: prove_ctx.params,
+        log_m: prove_ctx.log_m,
+    })
+}
+
+/// Verify a chunk-PESAT proof using a precomputed
+/// [`ChunkVerifyContext`]. Skips bundled_constraint + anchor reduce
+/// on every call.
+pub fn verify_chunk_pesat_with_context<F>(
+    context: &ChunkVerifyContext<F>,
+    proof: &ChunkPesatProof<F>,
+    block_seed: [u8; 32],
+    parallel_rep: u32,
+    sampling: SamplingParams,
+) -> core::result::Result<(), ChunkProofError>
+where
+    F: Field + ExpSerde + From<u32> + Mul<F, Output = F>,
+{
+    if proof.messages.len() != parallel_rep as usize {
+        return Err(ChunkProofError::Folding(FoldingError::ShapeMismatch(
+            format!(
+                "proof has {} messages, expected {parallel_rep} parallel reps",
+                proof.messages.len()
+            ),
+        )));
+    }
+
+    let _ = derive_tau::<F>(&block_seed, context.log_m); // tau is part of block_seed binding via FS
+
+    let _folded = verify_with_parallel_rep_bound::<F>(
+        &[context.anchor_instance.clone(), proof.instance.clone()],
+        &context.params,
+        &sampling,
+        &proof.messages,
+        &block_seed,
+    )?;
+
+    Ok(())
+}
+
 /// **Indexer-side prover.** Generate a chunk-PESAT proof.
 ///
 /// `index` + `instance` must have `index.k == instance.w.len()` and
@@ -518,6 +710,73 @@ mod tests {
             .expect("prove");
         verify_chunk_pesat::<F>(&idx, &proof, block_seed, parallel_rep, sampling())
             .expect("verify must accept honest proof");
+    }
+
+    /// Cached context path round-trips: build context → prove → verify
+    /// against the matching cached verify-context.
+    #[test]
+    fn cached_context_round_trip() {
+        let idx = PesatIndex {
+            constraints: vec![
+                Constraint {
+                    terms: vec![
+                        Term {
+                            coeff: f(1),
+                            vars: vec![0],
+                        },
+                        Term {
+                            coeff: f(1),
+                            vars: vec![1],
+                        },
+                        Term {
+                            coeff: -f(1),
+                            vars: vec![2],
+                        },
+                    ],
+                },
+                Constraint {
+                    terms: vec![
+                        Term {
+                            coeff: f(1),
+                            vars: vec![2],
+                        },
+                        Term {
+                            coeff: -f(1),
+                            vars: vec![3],
+                        },
+                    ],
+                },
+            ],
+            n_pub: 0,
+            k: 8,
+            d: 1,
+        };
+        let inst = PesatInstance {
+            x: vec![],
+            w: vec![f(3), f(5), f(8), f(8), f(0), f(0), f(0), f(0)],
+        };
+        let block_seed = [0xabu8; 32];
+        let parallel_rep = 1;
+
+        let prove_ctx = build_chunk_proof_context::<F>(&idx).expect("build prove context");
+        let proof = prove_chunk_pesat_with_context::<F>(
+            &prove_ctx,
+            &inst,
+            block_seed,
+            parallel_rep,
+            sampling(),
+        )
+        .expect("prove via context");
+
+        let verify_ctx = build_chunk_verify_context::<F>(&idx).expect("build verify context");
+        verify_chunk_pesat_with_context::<F>(
+            &verify_ctx,
+            &proof,
+            block_seed,
+            parallel_rep,
+            sampling(),
+        )
+        .expect("verify via context");
     }
 
     /// Tampered proof (corrupted message) is rejected.
