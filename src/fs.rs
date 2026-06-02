@@ -76,6 +76,43 @@ pub fn prove_with_transcript_rep<F: Field + ExpSerde>(
     TwinConstrainedWitness<F>,
     FoldMessage<F>,
 )> {
+    let (inst, wit, msg, _) = prove_with_transcript_rep_timed(
+        instances,
+        witnesses,
+        p_b,
+        params,
+        sampling,
+        rep_index,
+        external_binding,
+    )?;
+    Ok((inst, wit, msg))
+}
+
+/// Per-phase wall-time for one fold rep, in milliseconds.
+#[derive(Default, Debug, Clone, Copy)]
+pub struct RepPhaseTiming {
+    pub constr_6_3_ms: f64,
+    pub constr_7_2_ms: f64,
+    pub constr_8_2_ms: f64,
+}
+
+/// Same as [`prove_with_transcript_rep`] but also returns the per-phase
+/// wall-time breakdown. Used by downstream profiling (Willow GPU port
+/// scoping) to decide which construction to target first.
+pub fn prove_with_transcript_rep_timed<F: Field + ExpSerde>(
+    instances: &[TwinConstrainedInstance<F>; 2],
+    witnesses: &[TwinConstrainedWitness<F>; 2],
+    p_b: &BundledConstraint<F>,
+    params: &SchemeParams,
+    sampling: &SamplingParams,
+    rep_index: u32,
+    external_binding: &[u8],
+) -> Result<(
+    TwinConstrainedInstance<F>,
+    TwinConstrainedWitness<F>,
+    FoldMessage<F>,
+    RepPhaseTiming,
+)> {
     let mut t = Transcript::new(TRANSCRIPT_LABEL);
     t.absorb_bytes(b"rep");
     t.absorb_bytes(&rep_index.to_le_bytes());
@@ -86,14 +123,20 @@ pub fn prove_with_transcript_rep<F: Field + ExpSerde>(
     }
     absorb_instances(&mut t, instances);
 
+    let s = std::time::Instant::now();
     let (pseudo_inst, pseudo_wit, msg_6_3) =
         prove_6_3_via_transcript(&mut t, instances, witnesses, p_b, params)?;
+    let constr_6_3_ms = s.elapsed().as_secs_f64() * 1e3;
 
+    let s = std::time::Instant::now();
     let (claims, msg_7_2) =
         prove_7_2_via_transcript(&mut t, &pseudo_inst, &pseudo_wit, sampling, params)?;
+    let constr_7_2_ms = s.elapsed().as_secs_f64() * 1e3;
 
+    let s = std::time::Instant::now();
     let (final_inst, msg_8_2) =
         prove_8_2_via_transcript(&mut t, &claims, &pseudo_wit.f, params.log_n)?;
+    let constr_8_2_ms = s.elapsed().as_secs_f64() * 1e3;
 
     Ok((
         final_inst,
@@ -102,6 +145,11 @@ pub fn prove_with_transcript_rep<F: Field + ExpSerde>(
             twin_pseudo_batching: msg_6_3,
             codeword_batching: msg_7_2,
             multilinear_batching: msg_8_2,
+        },
+        RepPhaseTiming {
+            constr_6_3_ms,
+            constr_7_2_ms,
+            constr_8_2_ms,
         },
     ))
 }
