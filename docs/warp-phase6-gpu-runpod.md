@@ -13,7 +13,7 @@ The fold prover's hottest loop is `Construction 8.2`'s sumcheck:
   given the round's challenge.
 
 Both kernels exist in Expander's `sumcheck/cuda_m31/` and are
-M31Ext3-aware. Phase 6 vendors them into `crates/folding/cuda/`,
+M31Ext3-aware. Phase 6 vendors them into `cuda/`,
 exposes a `prove_cuda` function in `constr_8_2.rs`, and benches
 CPU vs CUDA on the same synthetic claims package across n = 2^10,
 2^14, 2^18.
@@ -53,10 +53,9 @@ source $HOME/.cargo/env
 nvcc --version
 ls /usr/local/cuda/lib64/libcudart.so
 
-# Pull the worktree (after I push it).
-git clone https://github.com/willow-network/willow.git
-cd willow
-git checkout agent-warp-impl/main
+# Clone the repo.
+git clone https://github.com/willow-network/warp-folding.git
+cd warp-folding
 ```
 
 ## Run the benches
@@ -64,22 +63,22 @@ git checkout agent-warp-impl/main
 ```bash
 # Sanity: build with the CUDA feature on. This compiles
 # cuda/m31_sumcheck.cu via nvcc. Should produce a libwarp_cuda_m31.a
-# in target/debug/build/willow-folding-*/out/.
-cargo build -p willow-folding --release --features cuda
+# in target/debug/build/warp-folding-*/out/.
+cargo build --release --features cuda
 
 # Run the unit + integration tests with CUDA on (the kernels are
 # only exercised in the bench, but this confirms the build links).
-cargo test -p willow-folding --release --features cuda
+cargo test --release --features cuda
 
 # Run the CUDA-vs-CPU bench. The smoke_test runs FIRST inside the
 # bench — if there's a wiring error, you'll see a panic with a
 # specific kernel return code.
-cargo bench -p willow-folding --features cuda \
+cargo bench --features cuda \
   -- fold_8_2_sumcheck_cuda_vs_cpu
 
 # (Optional) For a quick comparison on the existing M31Ext3 + r=2
 # parallel-rep path without CUDA, run:
-cargo bench -p willow-folding --release fold_pr2_identity_code
+cargo bench --release fold_pr2_identity_code
 ```
 
 ## What to paste back
@@ -131,7 +130,7 @@ Three possible outcomes:
   `LD_LIBRARY_PATH` already.
 - `error: linking with cc failed: undefined reference to cudaMalloc`:
   cargo isn't picking up the `rustc-link-lib=cudart` directive.
-  Try `cargo clean -p willow-folding && cargo build --features cuda`.
+  Try `cargo clean && cargo build --features cuda`.
 - Kernel returns nonzero rc: the smoke_test will catch this with a
   specific error message. Likely indicates a CUDA context issue
   (no GPU visible, e.g., from inside a container without `--gpus all`).

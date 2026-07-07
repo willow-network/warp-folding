@@ -62,7 +62,7 @@ pub type BundledConstraint<C> = Constraint<C>;
 impl<C: Field> TwinConstrainedInstance<C> {
     /// Build a twin-constrained instance from its prover-side witness,
     /// computing `(μ, η)` honestly and committing to the codeword via
-    /// Keccak-Merkle. Used by tests and by Construction 5.10 to seed
+    /// BLAKE3-Merkle. Used by tests and by Construction 5.10 to seed
     /// the first accumulator.
     pub fn from_honest<W>(
         alpha: Vec<C>,

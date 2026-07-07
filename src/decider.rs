@@ -7,6 +7,13 @@
 //!   3. `f̂(α) = μ` — the MLE claim holds.
 //!   4. `P_b(β, w) = η` — the bundled-constraint claim holds.
 //!
+//! Note: in the production accumulation path (`WarpProverState`), `P_b`
+//! is the trivial identity `w[0] - w[0] = 0` — per-block correctness is
+//! enforced by the external completeness + GKR layer (see `src/prover.rs`),
+//! so check (4) is structurally satisfied there and checks (1)-(3) carry
+//! the weight. A non-trivial `P_b` appears only in the multi-constraint
+//! PESAT paths (`src/chunk_pesat_prover.rs`).
+//!
 //! ## Where this runs in the Willow pipeline
 //!
 //! The decider is *not* part of consensus's per-block verification — at
@@ -209,3 +216,4 @@ mod tests {
         assert!(decide(&twin_inst, &twin_wit, &code, &p_b).is_err());
     }
 }
+

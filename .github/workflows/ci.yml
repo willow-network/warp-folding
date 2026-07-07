@@ -46,7 +46,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # CUDA feature is not built on GH runners (no nvcc); base
       # `cargo test` exercises the CPU prover/verifier + every
-      # construction. 83 unit + 6 e2e tests.
+      # construction. 95 unit + 6 e2e tests run here (101 total in CI).
       - run: cargo test --lib
       - run: cargo test --test end_to_end
 

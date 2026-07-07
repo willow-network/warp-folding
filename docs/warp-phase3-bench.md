@@ -1,8 +1,17 @@
 # WARP Phase 3+4 — Benchmarks, Reality Check, and Optimization Roadmap
 
+> **Correction (2026-06-16):** This is a historical phase log. Two classes of
+> claim in it are superseded by the README's "Security status" and "Benchmarks"
+> sections: (1) the `(D*/|F|)² ≈ 2⁻¹⁷⁶` / "128-bit achieved" framing is **not
+> established** — the parallel-rep-under-Fiat-Shamir composition is unproven and
+> the per-rep figure omits the binding OOD-sampling term; (2) the `9.1 / 3.83 ms`
+> per-fold figures are `IdentityCode` (no-op encoder, no Merkle) and did **not**
+> reproduce on re-measurement (~27.7 ms single-thread / ~7.2 ms rayon on Apple
+> M2). Read the numbers below as the journey, not the current claim.
+
 **Status**: Phase 3 deliverable.
 **Parent**: [warp-over-m31.md](./warp-over-m31.md).
-**Benchmarks live in**: `crates/folding/benches/fold.rs`.
+**Benchmarks live in**: `benches/fold.rs`.
 
 ## TL;DR
 
@@ -39,7 +48,7 @@ collaboration is much less useful right now than SIMD + parallelism.
 
 ## Methodology
 
-`crates/folding/benches/fold.rs` runs three Criterion benchmark
+`benches/fold.rs` runs three Criterion benchmark
 groups:
 
 1. **`spielman_encode`**: `SpielmanCode::encode(w)` over M31Ext6,
@@ -231,9 +240,9 @@ optimization, not as a current capability.**
 
 ## References
 
-- Bench source: `crates/folding/benches/fold.rs`
-- Component sources: `crates/folding/src/code.rs` (SpielmanCode),
-  `crates/folding/src/merkle.rs` (MerkleTree), `crates/folding/src/fs.rs`
+- Bench source: `benches/fold.rs`
+- Component sources: `src/code.rs` (SpielmanCode),
+  `src/merkle.rs` (MerkleTree), `src/fs.rs`
   (`prove_with_transcript`)
 - Hardware: Apple M2, 8 cores (1 used), single-thread Criterion,
   release-build profile.
@@ -270,7 +279,7 @@ between the two inner sums and avoiding the `n`-element
 | Composite per-fold @ k=2^22 (extrap) | ~20 s | ~5.5 s | **3.6×** |
 | 10M-block sync, 1000 cores | ~2.5 days | **~16 hours** | **3.6×** |
 
-`cargo test -p willow-folding` still green at 75 tests after both
+`cargo test` still green at 75 tests after both
 changes. Strict clippy clean. Phase 4-A is shipped.
 
 ## Phase 4 empirical study: field-size sensitivity
@@ -482,7 +491,7 @@ strict clippy.
 - ~8 hours for 10M-block historical sync on 1000-core cluster
 - Total Phase 1→5 speedup over Phase 3 baseline: ~4.75×
 - Soundness: 128-bit-target achieved via M31Ext3 + parallel rep r=2
-  (`(D*/|F|)² ≈ 2^-176`) plus full Keccak-Merkle codeword
+  (`(D*/|F|)² ≈ 2^-176`) plus full BLAKE3-Merkle codeword
   authentication
 
 ## Production-readiness items still open (future sessions)

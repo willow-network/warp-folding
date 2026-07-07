@@ -32,7 +32,7 @@ the first implementers.** WARP (May 2025) and Arc (Oct 2024) have no
 public Rust or C++ implementations. This is not a gap in the math;
 it's a schedule risk. The offsetting benefit is that we would own the
 implementation rather than be downstream of someone else's bindings,
-and a clean `crates/folding/` artifact is publishable.
+and a clean `warp-folding` artifact is publishable.
 
 The rest of this writeup: (§1) what changed between BMNW24 and WARP,
 (§2) adapted pseudocode for M31Ext5 + Orion, (§3) lemma-by-lemma
@@ -446,7 +446,7 @@ implementer; the proofs are detailed; the constants are given. We
 own the port.
 
 Offset: this is a genuine open-source contribution. Publishing
-`crates/folding/` as a WARP-over-any-code implementation is useful
+`warp-folding` as a WARP-over-any-code implementation is useful
 to the broader ecosystem (same value the original design doc
 flagged under "pioneer moat").
 
@@ -635,7 +635,7 @@ first-implementation risk and the slightly richer scheme.
    "Orion's commitment structure (Blake3-Merkle over
    Spielman-encoded witness) fits WARP's non-homomorphic
    accumulation framework directly."
-3. **Ship Phase 2 as scoped in §6.4**: standalone `crates/folding/`,
+3. **Ship Phase 2 as scoped in §6.4**: standalone `warp-folding`,
    first-cut WARP implementation over Orion + M31Ext5, testing
    two-instance fold with synthetic PESAT constraints.
 4. **Phase 3 benchmark target**: achieve `<10 ms per fold` for

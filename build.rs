@@ -1,4 +1,4 @@
-// Build script for willow-folding.
+// Build script for warp-folding.
 //
 // When the `cuda` feature is enabled, compiles the M31Ext3 sumcheck
 // CUDA kernels via nvcc. Kernels live under `cuda/` and are copied
@@ -41,7 +41,7 @@ fn main() {
             println!("cargo:rerun-if-changed=cuda");
         } else {
             println!(
-                "cargo:warning=nvcc not found; building willow-folding's `cuda` feature \
+                "cargo:warning=nvcc not found; building warp-folding's `cuda` feature \
                  with kernels disabled. Build will succeed but `cuda_kernels_built` cfg \
                  will not be set, so the GPU path is unreachable."
             );

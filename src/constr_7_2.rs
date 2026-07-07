@@ -7,14 +7,13 @@
 //! which collapses all `r = 1 + s + t` evaluation claims back to a
 //! single `f̂(α) = μ` claim.
 //!
-//! Phase 2 note: the full scheme inserts a Merkle commitment to `f`
-//! before OOD sampling so that `f` is bound before the prover sees
-//! challenges. We defer that to step 8 (BCS + Fiat-Shamir wiring) —
-//! here, `f` is passed in the clear between prover and verifier, and
-//! the soundness of the multi-point setup is guaranteed by the
-//! subsequent Construction 8.2 sumcheck. Adding the Merkle layer does
-//! not change the IOR-level math of 7.2, only the RO/transcript
-//! wrapping.
+//! The prover commits to `f` with a BLAKE3 Merkle root before OOD
+//! sampling, so `f` is bound before the prover sees any challenge. The
+//! verifier authenticates every shift-query value against that root
+//! (see `verify`) and rejects on any failed path, in addition to the
+//! Construction 8.2 batching sumcheck that binds the OOD/shift claims.
+//! The Merkle layer does not change the IOR-level math of 7.2, only the
+//! RO/transcript wrapping.
 
 use expander_arith::Field;
 

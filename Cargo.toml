@@ -10,11 +10,12 @@ readme = "README.md"
 keywords = ["cryptography", "zk", "folding", "accumulation", "warp"]
 categories = ["cryptography"]
 
-# First public production implementation of "Linear-Time Accumulation
-# Schemes" (Bünz, Chiesa, Fenzi, Wang, eprint 2025/753, TCC 2025).
-# Instantiated over the Polyhedra Expander M31 stack with
-# parallel-repetition r=2 for 128-bit soundness over M31Ext3.
-# See docs/warp-over-m31.md for design rationale.
+# Public implementation of "Linear-Time Accumulation Schemes" (Bünz,
+# Chiesa, Fenzi, Wang, eprint 2025/753, TCC 2025), instantiated over the
+# Polyhedra Expander M31 stack with parallel-repetition r=2 over M31Ext3.
+# Pre-release research code: the 128-bit security level is NOT established
+# (the parallel-rep-under-Fiat-Shamir composition is unproven). See the
+# README "Security status" section and docs/warp-over-m31.md.
 
 [dependencies]
 expander-arith = { git = "https://github.com/willow-network/Expander", rev = "5222cd40999a81d78de4d7d04d0424bf9f3ab54a", package = "arith" }

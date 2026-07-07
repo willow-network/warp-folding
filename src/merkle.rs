@@ -5,12 +5,14 @@
 //! aligns with Polyhedra Expander's Orion PCS Merkle (also BLAKE3).
 //!
 //! BLAKE3 was chosen over Keccak-256 for raw out-of-circuit speed:
-//! the WARP IOR opens ~`t ≈ 4790` shift queries per fold-step
-//! verification under the UD-regime MCA bound, and each opening
-//! re-hashes a `log_2(n)`-length authentication path. Both hashes
-//! provide 128-bit collision resistance and are treated as random
-//! oracles for the IOR soundness analysis, so the swap is
-//! security-neutral; it just pays back in verifier time.
+//! at a high-soundness sampling profile the WARP IOR opens ~`t ≈ 4790`
+//! shift queries per fold-step verification under the UD-regime MCA
+//! bound, and each opening re-hashes a `log_2(n)`-length authentication
+//! path. (The shipped default profile is `n_shifts = 2`, far below that;
+//! see the README "Security status" section.) Both hashes provide
+//! 128-bit collision resistance and are treated as random oracles for
+//! the IOR soundness analysis, so the swap is security-neutral; it just
+//! pays back in verifier time.
 //!
 //! Leaf hash: `BLAKE3("warp-merkle/leaf" || serialize(f[i]))`.
 //! Node hash: `BLAKE3("warp-merkle/node" || left_digest || right_digest)`.

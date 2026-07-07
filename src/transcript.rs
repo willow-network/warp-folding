@@ -5,10 +5,9 @@
 //! absorbs after a squeeze fold the squeezed output into the state, so
 //! the next challenge depends on every prior absorb and squeeze.
 //!
-//! This is the byte-level transcript layer. The full BCS compilation
-//! adds Merkle commitments and matches Willow's existing Keccak-Merkle
-//! convention. For Phase 2 polish, the transcript alone is enough to
-//! make the fold non-interactive.
+//! This is the byte-level transcript layer. The BCS compilation adds
+//! BLAKE3 Merkle commitments (see `merkle.rs`); the transcript alone is
+//! enough to make the fold non-interactive.
 
 use expander_arith::Field;
 use serdes::ExpSerde;

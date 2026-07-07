@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "warp-folding: First public production implementation of WARP over M31 + Orion"
+title: "warp-folding: a WARP implementation over M31Ext3 + Orion (pre-release)"
 message: "If you use this software, please cite both the underlying WARP paper and this implementation."
 type: software
 authors:
