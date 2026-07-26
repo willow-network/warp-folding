@@ -6,7 +6,7 @@ authors:
   - family-names: DeLucia
     given-names: Paul
 repository-code: "https://github.com/willow-network/warp-folding"
-license: "Apache-2.0 OR MIT"
+license: "AGPL-3.0-only"
 version: 0.1.0
 date-released: "2026-05-15"
 keywords:

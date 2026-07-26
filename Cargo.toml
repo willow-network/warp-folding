@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Paul DeLucia"]
 description = "WARP (Linear-Time Accumulation Schemes, Bünz/Chiesa/Fenzi/Wang, eprint 2025/753) over M31Ext3 + parallel-rep r=2"
-license = "Apache-2.0 OR MIT"
+license = "AGPL-3.0-only"
 repository = "https://github.com/willow-network/warp-folding"
 readme = "README.md"
 keywords = ["cryptography", "zk", "folding", "accumulation", "warp"]

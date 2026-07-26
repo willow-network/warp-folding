@@ -1,12 +1,20 @@
 # warp-folding
 
 [![CI](https://github.com/willow-network/warp-folding/actions/workflows/ci.yml/badge.svg)](https://github.com/willow-network/warp-folding/actions/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE-APACHE)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE-MIT)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 
 A public implementation of **WARP** (Linear-Time Accumulation Schemes,
 Bünz/Chiesa/Fenzi/Wang, [eprint 2025/753](https://eprint.iacr.org/2025/753),
 TCC 2025) instantiated over the Polyhedra Expander M31 stack.
+
+> **Archived, and relicensed to AGPL-3.0.** This crate builds on Polyhedra
+> Expander, which is AGPL-3.0, and `src/orion_code.rs` vendors a file from it
+> verbatim. Earlier revisions offered this repo under Apache-2.0 OR MIT and
+> the header of that file misattributed its origin as MIT/Apache-2.0. Both
+> were wrong: AGPL-3.0 is the only license this dependency graph supports, and
+> the repo now carries it. The research track this crate belongs to is retired
+> and the code is no longer developed — it stays public as a record of the
+> work and for the design notes in `docs/`.
 
 > **Pre-release research code.** The implementation is complete and tested,
 > but the soundness *story* is not yet settled — in particular the headline
@@ -218,5 +226,13 @@ this implementation:
 
 ## License
 
-Dual-licensed under [Apache-2.0](./LICENSE-APACHE) or [MIT](./LICENSE-MIT) at
-your option.
+[AGPL-3.0-only](./LICENSE).
+
+This crate depends on Polyhedra Expander (`arith`, `mersenne31`, `polynomials`,
+`serdes`, and `gf2_128` for tests), which is AGPL-3.0, and `src/orion_code.rs`
+is a verbatim copy of `poly_commit/src/orion/linear_code.rs` from that project.
+AGPL-3.0 is therefore the only license this work can be offered under.
+
+Earlier revisions of this repository were published under "Apache-2.0 OR MIT",
+and the header of `src/orion_code.rs` described its upstream as MIT/Apache-2.0.
+Both statements were incorrect and are corrected here.

@@ -1,8 +1,11 @@
 //! Orion linear code from Xie–Zhang–Song 2022 (`https://eprint.iacr.org/2022/1010`).
 //!
 //! This file is vendored from Polyhedra Expander
-//! (`https://github.com/PolyhedraZK/Expander`, MIT/Apache-2.0) at
-//! `poly_commit/src/orion/linear_code.rs`. The original carries the
+//! (`https://github.com/PolyhedraZK/Expander`, **AGPL-3.0**) at
+//! `poly_commit/src/orion/linear_code.rs`. Earlier revisions of this header
+//! described the upstream as MIT/Apache-2.0, which was incorrect — upstream
+//! Expander is AGPL-3.0 and carries no separate license under `poly_commit/`.
+//! This crate is AGPL-3.0-only for that reason. The original carries the
 //! soundness analysis (Druk–Ishai-14 distance-by-induction with the
 //! `ORION_CODE_PARAMETER_INSTANCE` parameters from Section 5 of the
 //! Orion paper). We import it as the certified production replacement
